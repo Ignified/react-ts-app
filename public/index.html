@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Todo Management</title>
+  <title>Product & Todo Manager</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,19 +20,10 @@
       text-align: center;
     }
 
-    form {
-      margin-bottom: 20px;
-    }
-
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 20px;
     }
 
     th, td {
@@ -45,6 +36,16 @@
       background-color: #f4f4f4;
     }
 
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+    }
+
+    form {
+      margin-bottom: 20px;
+    }
+
     .error {
       color: red;
     }
@@ -52,18 +53,25 @@
 </head>
 <body>
   <div class="container">
-    <h1>Todo Management</h1>
+    <h1>Product & Todo Manager</h1>
 
-    <!-- Login Form -->
-    <h2>Login</h2>
-    <form id="loginForm">
-      <input type="text" id="username" placeholder="Username" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <button type="submit">Login</button>
-      <p id="loginError" class="error"></p>
-    </form>
+    <!-- Product List -->
+    <h2>Product List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Description</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody id="productList">
+        <!-- Product rows will be added here -->
+      </tbody>
+    </table>
 
-    <!-- Create Todo Form -->
+    <!-- Todo Manager -->
     <h2>Create Todo</h2>
     <form id="createTodoForm">
       <input type="text" id="todoTitle" placeholder="Todo Title" required>
@@ -71,7 +79,6 @@
       <button type="submit">Add Todo</button>
     </form>
 
-    <!-- Todo List -->
     <h2>Todos</h2>
     <table>
       <thead>
@@ -84,58 +91,66 @@
         </tr>
       </thead>
       <tbody id="todoList">
-        <!-- Rows will be inserted here -->
+        <!-- Todo rows will be added here -->
       </tbody>
     </table>
   </div>
 
   <script>
-    const apiBase = 'http://localhost:3001';
-    let token = '';
+    const productApi = 'https://dummyjson.com/products';
+    const todoApiBase = 'http://localhost:3001';
+    let token = ''; // Replace with your token if needed
 
-    // Login Handler
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-
+    // Fetch Products
+    async function fetchProducts() {
       try {
-        const response = await fetch(`${apiBase}/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
-        });
-
-        if (!response.ok) throw new Error('Invalid credentials');
+        const response = await fetch(productApi);
+        if (!response.ok) throw new Error('Failed to fetch products');
         const data = await response.json();
-        token = data.token;
-        alert('Login successful!');
-        fetchTodos();
+        renderProducts(data.products);
       } catch (error) {
-        document.getElementById('loginError').textContent = error.message;
+        console.error('Error fetching products:', error);
+        alert('Error fetching products');
       }
-    });
+    }
+
+    // Render Product List
+    function renderProducts(products) {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+
+      products.forEach((product) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${product.id}</td>
+          <td>${product.title}</td>
+          <td>${product.description}</td>
+          <td>$${product.price}</td>
+        `;
+        productList.appendChild(row);
+      });
+    }
 
     // Fetch Todos
     async function fetchTodos() {
       try {
-        const response = await fetch(`${apiBase}/todos`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const response = await fetch(`${todoApiBase}/todos`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-
         if (!response.ok) throw new Error('Failed to fetch todos');
         const todos = await response.json();
         renderTodos(todos);
       } catch (error) {
-        console.error(error);
+        console.error('Error fetching todos:', error);
         alert('Error fetching todos');
       }
     }
 
-    // Render Todos
+    // Render Todo List
     function renderTodos(todos) {
       const todoList = document.getElementById('todoList');
       todoList.innerHTML = '';
+
       todos.forEach((todo) => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -159,20 +174,19 @@
       const description = document.getElementById('todoDescription').value;
 
       try {
-        const response = await fetch(`${apiBase}/todos`, {
+        const response = await fetch(`${todoApiBase}/todos`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({ title, description }),
         });
-
         if (!response.ok) throw new Error('Failed to create todo');
         fetchTodos();
         document.getElementById('createTodoForm').reset();
       } catch (error) {
-        console.error(error);
+        console.error('Error creating todo:', error);
         alert('Error creating todo');
       }
     });
@@ -180,15 +194,14 @@
     // Delete Todo
     async function deleteTodo(id) {
       try {
-        const response = await fetch(`${apiBase}/todos/${id}`, {
+        const response = await fetch(`${todoApiBase}/todos/${id}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-
         if (!response.ok) throw new Error('Failed to delete todo');
         fetchTodos();
       } catch (error) {
-        console.error(error);
+        console.error('Error deleting todo:', error);
         alert('Error deleting todo');
       }
     }
@@ -200,22 +213,25 @@
       const newCompleted = confirm('Mark as completed?');
 
       try {
-        const response = await fetch(`${apiBase}/todos/${id}`, {
+        const response = await fetch(`${todoApiBase}/todos/${id}`, {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({ title: newTitle, description: newDescription, completed: newCompleted }),
         });
-
         if (!response.ok) throw new Error('Failed to update todo');
         fetchTodos();
       } catch (error) {
-        console.error(error);
+        console.error('Error updating todo:', error);
         alert('Error updating todo');
       }
     }
+
+    // Fetch initial data
+    fetchProducts();
+    fetchTodos();
   </script>
 </body>
 </html>
